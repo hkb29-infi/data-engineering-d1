@@ -5,10 +5,24 @@ data "archive_file" "lambda_zip" {
   output_path = "${path.module}/lambda_package.zip"
 }
 
+# Upload the zipped Lambda code to S3
+resource "aws_s3_object" "lambda_zip_object" {
+  bucket = aws_s3_bucket.raw_data.id
+  key    = "lambda_packages/transformer_lambda.zip"
+  source = data.archive_file.lambda_zip.output_path
+
+  # Only re-upload if the zip file changes
+  etag = filemd5(data.archive_file.lambda_zip.output_path)
+}
+
 # The Lambda function resource
 resource "aws_lambda_function" "transformer_lambda" {
   function_name = "json-to-parquet-transformer-${random_id.suffix.hex}"
-  filename      = data.archive_file.lambda_zip.output_path
+  
+  # Deploy from the S3 bucket instead of direct upload
+  s3_bucket = aws_s3_bucket.raw_data.id
+  s3_key    = aws_s3_object.lambda_zip_object.key
+
   handler       = "transformer.handler" # The file is 'transformer.py', the function is 'handler'
   runtime       = "python3.9"
   role          = aws_iam_role.lambda_exec_role.arn
