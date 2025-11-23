@@ -1,0 +1,18 @@
+# Ignore Python virtual environments and cache
+**/__pycache__/
+*.pyc
+venv/
+.env
+
+# Ignore Terraform state and temporary files
+.terraform/
+*.tfstate
+*.tfstate.backup
+lambda_package.zip
+
+#Ignore everything else inside src
+src/*
+
+#these will not be ignored
+!src/transformer.py
+!src/requirements.txt
