@@ -1,4 +1,5 @@
 import boto3
+import urllib.parse
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -25,7 +26,10 @@ def handler(event, context):
     for record in event['Records']:
         # Get the source bucket name and object key from the S3 event
         source_bucket_name = record['s3']['bucket']['name']
-        object_key = record['s3']['object']['key']
+        
+        # S3 object keys with special characters are URL-encoded in the event.
+        # We must decode the key before using it.
+        object_key = urllib.parse.unquote_plus(record['s3']['object']['key'], encoding='utf-8')
 
         print(f"Processing object {object_key} from bucket {source_bucket_name}")
 
@@ -38,10 +42,9 @@ def handler(event, context):
             with gzip.GzipFile(fileobj=io.BytesIO(gzipped_content), mode='rb') as f:
                 json_content = f.read().decode('utf-8')
 
-            # The content might be a stream of JSON objects, one per line
-            # We'll read them into a list of dictionaries
-            json_lines = io.StringIO(json_content)
-            data = [json.loads(line) for line in json_lines]
+            # The content is a single JSON object sent by Firehose.
+            # We'll parse it and put it into a list so it can be read into a DataFrame.
+            data = [json.loads(json_content)]
 
             # Convert the list of dictionaries to a Pandas DataFrame
             df = pd.DataFrame(data)
