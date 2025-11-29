@@ -1,8 +1,8 @@
-# This data source zips the entire 'src' directory, including the script and its dependencies
+# This data source zips the 'src' directory containing our Lambda handler.
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_dir  = "${path.module}/../src" # Points to the 'src' directory
-  output_path = "${path.module}/lambda_package.zip"
+  source_dir  = "${path.module}/../src"
+  output_path = "${path.module}/../transformer-only.zip" # Creates a zip of only the transformer script
 }
 
 # Upload the zipped Lambda code to S3
@@ -19,16 +19,19 @@ resource "aws_s3_object" "lambda_zip_object" {
 resource "aws_lambda_function" "transformer_lambda" {
   function_name = "json-to-parquet-transformer-${random_id.suffix.hex}"
   
-  # Deploy from the S3 bucket instead of direct upload
+  # Deploy from the S3 bucket
   s3_bucket = aws_s3_bucket.raw_data.id
   s3_key    = aws_s3_object.lambda_zip_object.key
 
-  handler       = "transformer.handler" # The file is 'transformer.py', the function is 'handler'
+  handler       = "transformer.handler"
   runtime       = "python3.9"
   role          = aws_iam_role.lambda_exec_role.arn
   timeout       = 30 # seconds
 
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+
+  # Use the public, pre-built AWSSDKPandas (awswrangler) layer for us-east-1
+  layers = ["arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python39:2"]
 
   environment {
     variables = {
@@ -45,8 +48,6 @@ resource "aws_s3_bucket_notification" "raw_data_trigger" {
   lambda_function {
     lambda_function_arn = aws_lambda_function.transformer_lambda.arn
     events              = ["s3:ObjectCreated:*"]
-    # Optional: only trigger for files in a specific folder
-    # filter_prefix       = "some/folder/"
   }
 
   # This depends_on block is important. It tells Terraform to create the Lambda

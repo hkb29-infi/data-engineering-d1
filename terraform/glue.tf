@@ -16,10 +16,16 @@ resource "aws_iam_role" "glue_crawler_role" {
   })
 }
 
-# Policy for Glue Crawler to read from S3 and write to Glue Catalog
-resource "aws_iam_policy" "glue_crawler_policy" {
-  name        = "glue-crawler-policy-${random_id.suffix.hex}"
-  description = "Allows Glue Crawler to read from processed S3 bucket and write to Glue Catalog"
+# Attachment 1: Attach the AWS-managed policy for required Glue service permissions
+resource "aws_iam_role_policy_attachment" "glue_service_role_attach" {
+  role       = aws_iam_role.glue_crawler_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
+}
+
+# Attachment 2: Attach a custom policy for S3 permissions, as the managed policy does not grant S3 access.
+resource "aws_iam_role_policy" "glue_s3_access_policy" {
+  name = "glue-crawler-s3-access-policy-${random_id.suffix.hex}"
+  role = aws_iam_role.glue_crawler_role.id
 
   policy = jsonencode({
     Version   = "2012-10-17",
@@ -34,36 +40,9 @@ resource "aws_iam_policy" "glue_crawler_policy" {
           aws_s3_bucket.processed_data.arn,
           "${aws_s3_bucket.processed_data.arn}/*"
         ]
-      },
-      {
-        Effect = "Allow",
-        Action = [
-          "glue:GetDatabase",
-          "glue:CreateDatabase",
-          "glue:GetDataBases",
-          "glue:CreateTable",
-          "glue:GetTable",
-          "glue:GetTables",
-          "glue:UpdateTable",
-          "glue:DeleteTable",
-          "glue:BatchCreatePartition",
-          "glue:CreatePartition",
-          "glue:DeletePartition",
-  "glue:BatchDeletePartition",
-          "glue:GetPartition",
-          "glue:GetPartitions",
-          "glue:UpdatePartition"
-        ],
-        Resource = "*" # Glue permissions are often broad
       }
     ]
   })
-}
-
-# Attach the policy to the Glue Crawler role
-resource "aws_iam_role_policy_attachment" "glue_crawler_attach" {
-  role       = aws_iam_role.glue_crawler_role.name
-  policy_arn = aws_iam_policy.glue_crawler_policy.arn
 }
 
 # --- AWS Glue Catalog Database ---

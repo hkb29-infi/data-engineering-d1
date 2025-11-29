@@ -87,20 +87,20 @@ resource "aws_iam_policy" "lambda_exec_policy" {
         Resource = "arn:aws:logs:*:*:*"
       },
       {
-        # Permissions to read from the raw bucket
+        # Permissions for awswrangler to read from the raw bucket and write to the processed bucket
         Effect = "Allow",
         Action = [
-          "s3:GetObject"
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket"
         ],
-        Resource = "${aws_s3_bucket.raw_data.arn}/*"
-      },
-      {
-        # Permissions to write to the processed bucket
-        Effect = "Allow",
-        Action = [
-          "s3:PutObject"
-        ],
-        Resource = "${aws_s3_bucket.processed_data.arn}/*"
+        Resource = [
+          aws_s3_bucket.raw_data.arn,
+          "${aws_s3_bucket.raw_data.arn}/*",
+          aws_s3_bucket.processed_data.arn,
+          "${aws_s3_bucket.processed_data.arn}/*"
+        ]
       }
     ]
   })
