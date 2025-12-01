@@ -1,54 +1,54 @@
 # Serverless Data Processing Pipeline
 
-This assessment consists of a serverless data processing pipeline on AWS to handle streaming clickstream data as structured in Assignment D1.
+In this assessment D1, there is implementation for a serverless data processing pipeline on AWS to handle streaming clickstream data.
 
-## Architecture
+## Structure
 
-The pipeline is designed with the following event-driven architecture using serverless AWS components:
+The pipeline is designed with the following sequential architecture using serverless AWS components:
 
-`Client Data -> Kinesis Firehose -> Raw S3 Bucket (JSON) -> S3 Trigger -> Lambda Function (Transform) -> Processed S3 Bucket (Parquet) -> Glue Crawler -> Athena`
+`Client Data -> Kinesis Firehose (Ingestion) -> Raw S3 Bucket (in JSON) -> S3 Trigger -> Lambda Function (Transformation) -> Processed S3 Bucket (in Parquet) -> Glue Crawler (defining data table) -> Athena (Querying)`
 
-The Lambda function's dependencies (e.g., `awswrangler`) are managed via a pre-built, public AWS Lambda Layer, which is referenced in the Terraform configuration. This ensures portability and avoids local build issues.
+The Lambda function's dependencies (e.g., `awswrangler`, `pandas`, `pyarrow`) are dealt through managed public AWS Lambda Layer as seen in the Terraform configuration. This ensures scalability and avoids local build issues as mentioned in the design choices.
 
 ## Deliverables Checklist
 
 - [x] IaC for the entire pipeline (`/terraform` directory)
 - [x] Transformation script (`/src/transformer.py`)
-- [x] README.md with instructions and sample queries (this file)
-- [x] Supporting material for design choices (`/docs/DESIGN.md`)
-- [x] Public Git repository with commit history
+- [x] README.md (this file)
+- [x] Supporting material for my design choices (`/docs/DESIGN.md`)
+- [x] Public Git repository with commits
 
-## How to Deploy
+## How to Run the pipeline
 
 ### Prerequisites
-*   An active AWS Account
+* AWS CLI installed and configured
+* Active AWS Account
 *   Terraform installed
-*   AWS CLI installed and configured with credentials (`aws configure`)
 
 ### Deployment Steps
 
-1.  **Clone the Repository:**
+1.  **Clone the Repo:**
     ```bash
     git clone https://github.com/hkb29-infi/data-engineering-d1.git
     cd data-engineering-d1
     ```
 
 2.  **Deploy the Infrastructure:**
-    Navigate to the Terraform directory and deploy all resources. There are no local dependencies to install.
+    Go to the Terraform directory to deploy the resources and there is no installation needed for dependencies.
     ```bash
     cd terraform
     terraform init
     terraform apply
     ```
-    Review the plan and type `yes` to approve. Note the output name of the `firehose_delivery_stream_name`.
+    Review the plan and type `yes` to approve. You will get an output with the name of your `firehose delivery stream`.
 
 ## How to Test
 
 After deployment, you can send a test record to the pipeline using the included `sample-event.json` and the AWS CLI.
 
-1.  **Get the Delivery Stream Name**: The name of the delivery stream is an output of the Terraform deployment. Look for the `firehose_delivery_stream_name` output.
+1.  **Get the Delivery Stream Name**: As mentioned, by running `terraform apply` you will get your `firehose delivery stream` name.
 
-2.  **Send a Test Record (using PowerShell)**: The following commands will encode the content of `sample-event.json` and send it to your delivery stream.
+2.  **Send a Test Record via PowerShell**: The following commands will encode the content of `sample-event.json` and send it to your delivery stream.
 
     ```powershell
     # IMPORTANT: Replace <YOUR_DELIVERY_STREAM_NAME> with the actual stream name from the terraform output.
@@ -64,17 +64,15 @@ After deployment, you can send a test record to the pipeline using the included 
     aws firehose put-record --delivery-stream-name $delivery_stream_name --record $record_json_string
     ```
 
-    A successful command will return a `RecordId`, confirming the record was received.
+    You will get a `RecordId` if the command is successful which confirms that the record was received.
 
 ## Verifying the Results
 
-1.  **Check S3**: After a minute or two, you should see a new Parquet file in your processed data bucket, organized by date (e.g., `s3://your-processed-bucket/year=2025/month=11/day=27/...`).
-2.  **Run Glue Crawler**: Manually run the Glue Crawler created by Terraform from the AWS Glue console. This will crawl the processed data and define its schema in the Glue Data Catalog.
-3.  **Query with Athena**: Go to the Amazon Athena query editor, select the database created by Terraform (e.g., `clickstream_db_...`), and run a query against the new table.
+1.  **Check S3**: After using the `aws firehose put-record`, you should see a new Parquet file in your processed data bucket on your AWS S3 console, organized by date (e.g., `s3://your-processed-bucket/year=2025/month=11/day=29/...`).
+2.  **Run Glue Crawler**: Manually run the Glue Crawler created by Terraform from the AWS Glue console as this will crawl the processed data and define its schema in the Glue Data Catalog.
+3.  **Query with Athena**: Go to the Amazon Athena query editor, select the database created by Terraform (e.g., `clickstream_db_...`), and run the desired queries in the new table. Sample queries are given below. Make sure to select a S3 configuration to be able to run the queries in Athena.
 
 ## Sample Athena Queries
-
-**Note:** Replace `"your_athena_table_name"` with the actual table name created by your Glue Crawler.
 
 **1. Verify All Data and Schema**
 ```sql
@@ -91,9 +89,9 @@ ORDER BY event_count DESC;
 
 ## How to Clean Up
 
-To avoid ongoing charges, destroy all cloud resources when you are finished.
+To make sure there are no charges running in the back, we should destroy all cloud resources we used in the pipeline when done.
 
-1.  Navigate to the `terraform` directory:
+1.  So we will again go to the `terraform` directory:
     ```bash
     cd terraform
     ```
